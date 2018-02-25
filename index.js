@@ -1,38 +1,67 @@
 const express = require('express');
 const bodyParser = require('body-parser');
 const uniqid = require('uniqid');
+const fs = require('fs');
 
 const app = express();
 
 app.use(bodyParser.json());
 
-let clients = [];
+const fetchClients = (callback) => {
+  try {
+    const clients = fs.readFileSync('clients-data.json', 'utf8');
 
-const getClientIndex = id => {
+    return JSON.parse(clients);
+  } catch (e) {
+
+    return [];
+  }
+};
+
+const saveClients = (clients) => {
+  fs.writeFile('clients-data.json', JSON.stringify(clients), 'utf8', (err) => {
+    if (err) throw err;
+  });
+};
+
+const getClientIndex = (id) => {
   if (id) {
+    const clients = fetchClients();
+
     return clients.findIndex(client => client.id == id);
   } else {
+
     return -1;
   }
 };
 
+// POST /clients
 app.post('/clients', (req, res) => {
+  const clients = fetchClients();
   let client = {};
 
   client.id = uniqid();
 
-  client = Object.assign(client, req.body)
+  client = Object.assign(client, req.body);
 
   clients.push(client);
+
+  saveClients(clients);
 
   res.json([{info: 'client create successfully'}, {client: client}]);
 });
 
+// GET /clients
 app.get('/clients', (req, res) => {
+  const clients = fetchClients();
+
   res.json(clients);
 });
 
+// GET /clients/:id
 app.get('/clients/:id', (req, res) => {
+  const clients = fetchClients();
+
   if (getClientIndex(req.params.id) >= 0) {
     res.json(clients.filter(client => client.id === req.params.id));
   } else {
@@ -41,6 +70,7 @@ app.get('/clients/:id', (req, res) => {
 });
 
 app.put('/clients/:id', (req, res) => {
+  const clients = fetchClients();
   const clientIndex = getClientIndex(req.params.id);
 
   if (clientIndex >= 0) {
@@ -49,7 +79,9 @@ app.put('/clients/:id', (req, res) => {
 
     client.id = clients[clientIndex].id;
 
-    clients[clientIndex] = Object.assign(client, req.body)
+    clients[clientIndex] = Object.assign(client, req.body);
+
+    saveClients(clients);
 
     res.json([{info: 'client updated successfully'}, {client: clients[clientIndex]}]);
   } else {
@@ -58,10 +90,12 @@ app.put('/clients/:id', (req, res) => {
 });
 
 app.delete('/clients/:id', (req, res) => {
+  const clients = fetchClients();
   const clientIndex = getClientIndex(req.params.id);
 
   if (clientIndex >= 0) {
     clients.splice(clientIndex, 1);
+    saveClients(clients);
     res.json({info: 'client removed successfully'});
   } else {
     res.json({info: 'client not found'});
@@ -70,7 +104,7 @@ app.delete('/clients/:id', (req, res) => {
 });
 
 app.listen(3000, () => {
-  console.log('Server is running at port 3000')
+  console.log('Server is running at port 3000');
 });
 
 // Commands to test the API
